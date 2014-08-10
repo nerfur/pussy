@@ -36,6 +36,51 @@ void add_history(char* unused) {}
 
 #endif
 
+/* Declare New pval Struct */
+typedef struct {
+  int type;
+  long num;
+  int err;
+} pval;
+
+/* Create Enumeration of Possible pval Types */
+enum { PVAL_NUM, PVAL_ERR };
+
+/* Create Enumeration of Possible Error Types */
+enum { PERR_DIV_ZERO, PERR_BAD_OP, PERR_BAD_NUM };
+
+/* Create a new number type pval */
+pval pval_num(long x) {
+  pval v;
+  v.type = PVAL_NUM;
+  v.num = x;
+  return v;
+}
+
+/* Create a new error type pval */
+pval pval_err(int x) {
+  pval v;
+  v.type = PVAL_ERR;
+  v.err = x;
+  return v;
+}
+
+/* Print an "pval" */
+void pval_print(pval v) {
+  switch (v.type) {
+    /* In the case the type is a number print it, then 'break' out of the switch. */
+    case PVAL_NUM: printf("%li", v.num); break;
+
+    /* In the case the type is an error */
+    case PVAL_ERR:
+      /* Check What exact type of error it is and print it */
+      if (v.err == PERR_DIV_ZERO) { printf("Error: Division By Zero!"); }
+      if (v.err == PERR_BAD_OP)   { printf("Error: Invalid Operator!"); }
+      if (v.err == PERR_BAD_NUM)  { printf("Error: Invalid Number!"); }
+    break;
+  }
+}
+
 long eval_op(long x, char* op, long y) {
   if (strcmp(op, "+") == 0) { return x + y; }
   if (strcmp(op, "-") == 0) { return x - y; }
