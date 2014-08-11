@@ -69,7 +69,7 @@ pval pval_err(int x) {
 void pval_print(pval v) {
   switch (v.type) {
     /* In the case the type is a number print it, then 'break' out of the switch. */
-    case PVAL_NUM: printf("%li", v.num); break;
+    case PVAL_NUM: printf("%li\n\nPurr.", v.num); break;
 
     /* In the case the type is an error */
     case PVAL_ERR:
@@ -77,28 +77,43 @@ void pval_print(pval v) {
       if (v.err == PERR_DIV_ZERO) { printf("Error: Division By Zero!"); }
       if (v.err == PERR_BAD_OP)   { printf("Error: Invalid Operator!"); }
       if (v.err == PERR_BAD_NUM)  { printf("Error: Invalid Number!"); }
+      printf("\n\nMeow?");
     break;
   }
 }
 
-long eval_op(long x, char* op, long y) {
-  if (strcmp(op, "+") == 0) { return x + y; }
-  if (strcmp(op, "-") == 0) { return x - y; }
-  if (strcmp(op, "*") == 0) { return x * y; }
-  if (strcmp(op, "/") == 0) { return x / y; }
-  return 0;
+void pval_println(pval v) { pval_print(v); putchar('\n'); }
+
+pval eval_op(pval x, char* op, pval y) {
+
+  /* If either value is an error return it */
+  if (x.type == PVAL_ERR) { return x; }
+  if (y.type == PVAL_ERR) { return y; }
+
+  /* do math */
+  if (strcmp(op, "+") == 0) { return pval_num(x.num + y.num); }
+  if (strcmp(op, "-") == 0) { return pval_num(x.num - y.num); }
+  if (strcmp(op, "*") == 0) { return pval_num(x.num * y.num); }
+  if (strcmp(op, "/") == 0) { 
+     /* If second operand is zero return error instead of result */
+     return y.num == 0 ? pval_err(PERR_DIV_ZERO) : pval_num(x.num / y.num);
+  }
+  
+    return pval_err(PERR_BAD_OP);
 }
 
-long eval(mpc_ast_t* t) {
+pval eval(mpc_ast_t* t) {
   
   /* If tagged as number return it directly, otherwise expression. */ 
-  if (strstr(t->tag, "number")) { return atoi(t->contents); }
+  if (strstr(t->tag, "number")) { 
+     errno = 0;
+     long x = strtol(t->contents, NULL, 10);
+     return errno != ERANGE ? pval_num(x) : pval_err(PERR_BAD_NUM);
+  }
   
   /* The operator is always second child. */
-  char* op = t->children[1]->contents;
-  
-  /* We store the third child in `x` */
-  long x = eval(t->children[2]);
+  char* op = t->children[1]->contents;  
+  pval x = eval(t->children[2]);
   
   /* Iterate the remaining children, combining using our operator */
   int i = 3;
@@ -145,13 +160,13 @@ mpca_lang(MPCA_LANG_DEFAULT,
     mpc_result_t r; 
     if (mpc_parse("<stdin>", input, Pussy, &r)) {
       /* On Success Print the AST */
-      long result = eval(r.output);
-      printf("%li\n\nPurr.\n", result);
+      pval result = eval(r.output);
+      pval_println(result);
       mpc_ast_delete(r.output);
     } else {
       /* Otherwise Print the Error */
       mpc_err_print(r.error);
-      printf("\n\n Meow! \n");
+      printf("\nMeow! \n");
       mpc_err_delete(r.error);
 }
 
