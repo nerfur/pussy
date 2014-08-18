@@ -37,32 +37,72 @@ void add_history(char* unused) {}
 #endif
 
 /* Declare New pval Struct */
-typedef struct {
+typedef struct pval {
   int type;
   long num;
-  int err;
+  char* err;
+  char* sym;
+  int count;
+  struct pval** cell;
 } pval;
 
 /* Create Enumeration of Possible pval Types */
-enum { PVAL_NUM, PVAL_ERR };
+enum { PVAL_NUM, PVAL_ERR, PVAL_SYM, PVAL_SEXPR };
 
 /* Create Enumeration of Possible Error Types */
 enum { PERR_DIV_ZERO, PERR_BAD_OP, PERR_BAD_NUM };
 
-/* Create a new number type pval */
-pval pval_num(long x) {
-  pval v;
-  v.type = PVAL_NUM;
-  v.num = x;
+/* Create a new number type pointer pval */
+pval* pval_num(long x) {
+  pval* v = malloc(sizeof(pval));
+  v->type = PVAL_NUM;
+  v->num  = x;
   return v;
 }
 
-/* Create a new error type pval */
-pval pval_err(int x) {
-  pval v;
-  v.type = PVAL_ERR;
-  v.err = x;
+/* Create a new error type pointer pval */
+pval* pval_err(char* m) {
+  pval* v = malloc(sizeof(pval));
+  v->type = PVAL_ERR;
+  v->err  = malloc(strlen(m)+1);
+  strcpy(v->err, m);
   return v;
+}
+
+/* Create a new symbol type pointer pval */
+pval* pval_sym(char* s) {
+  pval* v = malloc(sizeof(pval));
+  v->type = PVAL_SYM;
+  v->sym  = malloc(strlen(s)+1);
+  strcpy(v->sym, m);
+  return v;
+}
+
+/* Create a new S-Expression type pointer pval */
+pval* pval_sexpr(void) {
+  pval* v = malloc(sizeof(pval));
+  v->type = PVAL_SEXPR;
+  v->count = 0;
+  v->cell = NULL;
+  return v; 
+}
+
+/*delete and free pval */
+
+void pval_delete (pval* v) {
+  /* detect type and prepare content of structure for clean free */
+  switch (v->type) {
+    case PVAL_NUM: break;
+    case PVAL_ERR: free(v->err); break;
+    case PVAL_SYM: free(v->sym); break; 
+    case PVAL_SEXPR:
+      for (int i = 0; i < v->count; i++) {
+	pval_del(v->cell[i]);
+      }
+      free(v->cell);
+    break;
+  }
+  free(v);
 }
 
 /* Print an "pval" */
@@ -129,7 +169,8 @@ int main(int argc, char** argv) {
 
 /* Create Some Parsers */
 mpc_parser_t* Number   = mpc_new("number");
-mpc_parser_t* Operator = mpc_new("operator");
+mpc_parser_t* Symbol   = mpc_new("symbol");
+mpc_parser_t* Sexpr    = mpc_new("sexpr");
 mpc_parser_t* Expr     = mpc_new("expr");
 mpc_parser_t* Pussy    = mpc_new("pussy");
 
@@ -137,11 +178,12 @@ mpc_parser_t* Pussy    = mpc_new("pussy");
 mpca_lang(MPCA_LANG_DEFAULT,
   "                                                     \
     number   : /-?[0-9]+/ ;                             \
-    operator : '+' | '-' | '*' | '/' ;                  \
-    expr     : <number> | '(' <operator> <expr>+ ')' ;  \
-    pussy    : /^/ <operator> <expr>+ /$/ ;             \
+    symbol   : '+' | '-' | '*' | '/' ;                  \
+    sexpr    : '(' <expr>* ')' ;			\
+    expr     : <number> | <symbol> | <sexpr> ;		\
+    pussy    : /^/ <expr>* /$/ ;             		\
   ",
-  Number, Operator, Expr, Pussy);
+  Number, Symbol, Sexpr, Expr, Pussy);
 
   /* Print Version and Exit Information */
   puts("Pussy Version 0.0.0.0.1");
@@ -176,7 +218,7 @@ mpca_lang(MPCA_LANG_DEFAULT,
   }
 
 /* Undefine and Delete our Parsers */
-mpc_cleanup(4, Number, Operator, Expr, Pussy);
+mpc_cleanup(5, Number, Symbol, Sexpr, Expr, Pussy);
 
   return 0;
 }
