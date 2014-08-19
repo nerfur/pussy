@@ -105,7 +105,61 @@ void pval_delete (pval* v) {
   free(v);
 }
 
-/* Print an "pval" */
+pval* pval_add(pval* v,pval* x) {
+  v->count++;
+  v->cell = realloc(v->cell, sizeof(pval*) * v->count);
+  v->cell[v->count-1] = x;
+  return v;
+}
+
+pval* pval_read_num(mpc_ast_t* t) {
+  errno = 0;
+  long x = strtol(t->contents, NULL, 10);
+  return errno != ERANGE ? pval_num(x) : pval_err("Invalid number");
+}
+
+pval* pval_read(mpc_ast_t* t) {
+  if (strstr(t->tag, "number")) { return pval_read_num(t); }
+  if (strstr(t->tag, "symbol")) { return pval_sym(t->contents); }
+
+  pval* x = NULL;
+  if (strcmp(t->tag, ">") == 0) { x = pval_sexpr(); }
+  if (strstr(t->tag, "sexpr")) { x = pval_sexpr(); }
+
+  for (int i = 0; i < t->children_num; i++) {
+    if (strcmp(t->children[i]->contents, "(") == 0) { continue; }
+    if (strcmp(t->children[i]->contents, ")") == 0) { continue; }
+    if (strcmp(t->children[i]->contents, "{") == 0) { continue; }
+    if (strcmp(t->children[i]->contents, "}") == 0) { continue; }
+    if (strcmp(t->children[i]->tag,  "regex") == 0) { continue; }
+    x = pval_add(x, pval_read(t->children[i]));
+  }
+
+  return x;
+}
+
+void pval_expr_print(pval* v, char open, char close) {
+  putchar(open);
+  for (int i = 0; i < v->count; i++) {
+    pval_print(v->cell[i]);
+
+    if (i != (v->count-1)) {
+      putchar(' ');
+    }
+  }
+ putchar(close);
+}
+
+void pval_print(pval* v) {
+  switch (v->type) {
+    case PVAL_NUM:   printf("%li", v->num); break;
+    case PVAL_ERR:   printf("Error: %s", v->err); break;
+    case PVAL_SYM:   printf("%s", v->sym); break;
+    case PVAL_SEXPR: pval_expr_print(v, '(', ')'); break;
+  }
+}
+
+/* Print an "pval" 
 void pval_print(pval v) {
   switch (v.type) {
     /* In the case the type is a number print it, then 'break' out of the switch. */
@@ -121,6 +175,8 @@ void pval_print(pval v) {
     break;
   }
 }
+
+*/
 
 void pval_println(pval v) { pval_print(v); putchar('\n'); }
 
